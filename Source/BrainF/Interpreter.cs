@@ -105,7 +105,7 @@ namespace Cyral.BrainF.Interpreter
 
                     if (instruction == '[')
                         Stack.Push(InstructionPointer);
-                    if (instruction == ']')
+                    else if (instruction == ']')
                     {
                         if (Stack.Count == 0)
                             throw new InvalidOperationException(
