@@ -62,7 +62,7 @@ namespace Cyral.BrainF.Interpreter
         public int Pointer { get; private set; }
 
         /// <summary>
-        /// The sourc code.
+        /// The source code.
         /// </summary>
         public char[] Source { get; }
 
@@ -110,7 +110,7 @@ namespace Cyral.BrainF.Interpreter
                         if (Stack.Count == 0)
                             throw new InvalidOperationException(
                                 string.Format(
-                                    "Bracket mismatch. No opening bracket for closing bracket at instrction {0}.",
+                                    "Bracket mismatch. No opening bracket for closing bracket at instruction {0}.",
                                     InstructionPointer));
                         var open = Stack.Pop();
                         Jumps.Add(open, InstructionPointer);
