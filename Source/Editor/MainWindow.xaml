@@ -5,7 +5,7 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:local="clr-namespace:Editor"
     mc:Ignorable="d"
-    Title="BrainF Editor" Height="600" Width="1400">
+    Title="BrainF Editor" Height="600" Width="1500">
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="0" /> <!-- May be used for additional buttons eventually -->
@@ -14,8 +14,8 @@
         </Grid.RowDefinitions>
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="*" />
-            <ColumnDefinition Width="*" />
-            <ColumnDefinition Width=".26*" />
+            <ColumnDefinition Width=".6*" />
+            <ColumnDefinition Width=".29*" />
         </Grid.ColumnDefinitions>
 
         <GridSplitter Grid.Column="0" Width="1" Grid.RowSpan="3" ResizeDirection="Auto" 
@@ -68,6 +68,7 @@
                     <GridView>
                         <GridViewColumn Header="Address" Width="64" DisplayMemberBinding="{Binding Address, StringFormat={}{0:X4}}"/>
                         <GridViewColumn Header="Value" Width="64" DisplayMemberBinding="{Binding Value}"/>
+                        <GridViewColumn Header="Character" Width="64" DisplayMemberBinding="{Binding Char}"/>
                     </GridView>
                 </ListView.View>
             </ListView>

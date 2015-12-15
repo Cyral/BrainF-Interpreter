@@ -3,168 +3,83 @@ using System.Collections.Generic;
 
 namespace Cyral.BrainF.Interpreter
 {
-    public class Interpreter
+    public unsafe class Interpreter
     {
-        /// <summary>
-        /// The number of cells of memory.
-        /// </summary>
-        public int Cells { get; }
+        private readonly int cells;
 
-        /// <summary>
-        /// The current cell's value.
-        /// </summary>
-        public byte CurrentValue
+        private readonly Optimizer optimizer;
+
+        private readonly Parser parser;
+        private readonly Func<char> read;
+
+        private readonly Action<char> write;
+
+        public Interpreter(int cells, Action<char> write, Func<char> read)
         {
-            get { return Memory[Pointer]; }
-            set
-            {
-                Memory[Pointer] = value;
-                memoryUpdated(Pointer, value);
-            }
+            this.write = write;
+            this.read = read;
+            this.cells = cells;
+
+            parser = new Parser();
+            optimizer = new Optimizer();
         }
 
-        /// <summary>
-        /// The program's input.
-        /// </summary>
-        public char[] Input { get; private set; }
-
-        /// <summary>
-        /// The current position in the input.
-        /// </summary>
-        public int InputPointer { get; private set; }
-
-        /// <summary>
-        /// The current position in the source code.
-        /// </summary>
-        public int InstructionPointer { get; private set; }
-
-        /// <summary>
-        /// A collection of loop jumps, which are pre-processed for speed.
-        /// </summary>
-        public Dictionary<int, int> Jumps { get; }
-
-        /// <summary>
-        /// The length of the source code.
-        /// </summary>
-        public int Length
+        public void Run(string sourcecode)
         {
-            get { return Source.Length; }
-        }
+            var source = sourcecode.Replace(" ", "").ToCharArray();
+            byte *mp = stackalloc byte[cells];
+            int ip = 0;
 
-        /// <summary>
-        /// A representation of the program's memory.
-        /// </summary>
-        public byte[] Memory { get; private set; }
 
-        /// <summary>
-        /// The current cell's position.
-        /// </summary>
-        public int Pointer { get; private set; }
+            // Parse source intro operators.
+            var opList = parser.Parse(source);
 
-        /// <summary>
-        /// The source code.
-        /// </summary>
-        public char[] Source { get; }
+            // Optimize the operators
+            var ops = optimizer.Optimize(opList).ToArray();
 
-        /// <summary>
-        /// The call stack. (Used for loops)
-        /// </summary>
-        public Stack<int> Stack { get; }
-
-        /// <summary>
-        /// Determines if execution should continue or stop.
-        /// </summary>
-        public bool Stopped { get; set; }
-
-        private readonly Action<int, byte> memoryUpdated;
-
-        public Interpreter(int cells, string source, Action<int, byte> memoryUpdated)
-        {
-            this.memoryUpdated = memoryUpdated;
-            Cells = cells;
-            Stack = new Stack<int>();
-            Jumps = new Dictionary<int, int>();
-            Source = source.Replace(" ", "").ToCharArray();
-        }
-
-        public IEnumerable<char> Parse(string input)
-        {
-            Input = input.ToCharArray();
-
-            //On first run of this source code, or re-runs, set up variables and pre-process code.
-            if (!Stopped || InstructionPointer == Length)
+            // Run the final code.
+            while (ip < ops.Length)
             {
-                Memory = new byte[Cells];
-                Stack.Clear();
-                Jumps.Clear();
-                InstructionPointer = InputPointer = Pointer = 0;
-                //Pre-process loops
-                while (InstructionPointer < Length)
-                {
-                    var instruction = Source[InstructionPointer];
-
-                    if (instruction == '[')
-                        Stack.Push(InstructionPointer);
-                    else if (instruction == ']')
-                    {
-                        if (Stack.Count == 0)
-                            throw new InvalidOperationException(
-                                string.Format(
-                                    "Bracket mismatch. No opening bracket for closing bracket at instruction {0}.",
-                                    InstructionPointer));
-                        var open = Stack.Pop();
-                        Jumps.Add(open, InstructionPointer);
-                        Jumps.Add(InstructionPointer, open);
-                    }
-
-                    InstructionPointer++;
-                }
-                InstructionPointer = 0;
-            }
-            Stopped = false;
-
-            //Parse and run code.
-            while (InstructionPointer < Length && !Stopped)
-            {
-                var instruction = Source[InstructionPointer];
-
+                var instruction = ops[ip];
+                var op = instruction.Operator;
                 //Run the operation for one of the 8 instructions.
-                switch (instruction)
+                switch (op)
                 {
-                    case '>':
-                        Pointer++;
-                        if (Pointer > Memory.Length - 1)
-                            throw new InvalidOperationException("Pointer incremented above memory bounds.");
+                    case Op.Left: // <
+                        mp -= instruction.Data[0];
                         break;
-                    case '<':
-                        Pointer--;
-                        if (Pointer < 0)
-                            throw new InvalidOperationException("Pointer decremented below 0.");
+                    case Op.Right: // >
+                        mp += instruction.Data[0];
                         break;
-                    case '+':
-                        CurrentValue++;
+                    case Op.Add: // +
+                        (*mp) += instruction.Data[0];
                         break;
-                    case '-':
-                        CurrentValue--;
+                    case Op.Sub: // -
+                        (*mp) -= instruction.Data[0];
                         break;
-                    case '[':
-                        if (CurrentValue == 0)
-                            InstructionPointer = Jumps[InstructionPointer]; //Select the coresponding close bracket.
+                    case Op.Open: // [
+                        if (*mp == 0)
+                            ip = optimizer.Jumps[ip]; //Select the coresponding close bracket.
                         break;
-                    case ']':
-                        if (CurrentValue != 0)
-                            InstructionPointer = Jumps[InstructionPointer] - 1; //Subtract one, as it will be added back later.
+                    case Op.Close: // ]
+                        if (*mp != 0)
+                            ip = optimizer.Jumps[ip];
+                        //Subtract one, as it will be added back later.
                         break;
-                    case '.':
-                        yield return (char)CurrentValue;
+                    case Op.Output: // .
+                        write.Invoke((char)*mp);
                         break;
-                    case ',':
-                        if (InputPointer < Input.Length)
-                            CurrentValue = (byte)Input[InputPointer++];
+                    case Op.Clear:
+                        (*mp) = 0;
                         break;
+                    case Op.Input: // ,
+                        (*mp) = (byte)read.Invoke();
+                        break;
+                    default:
+                        throw new ArgumentOutOfRangeException();
                 }
 
-                InstructionPointer++;
+                ip++;
             }
         }
     }

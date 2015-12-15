@@ -38,6 +38,7 @@ namespace Editor
 
         private void btnRun_Click(object sender, RoutedEventArgs e)
         {
+            /*
             if (Interpreter == null || Interpreter.Stopped)
             {
                 //If the interpreter has not been created or the source has changed, create it
@@ -52,17 +53,13 @@ namespace Editor
                 }
                 btnRun.Content = "Stop";
 
-                var text = txtInput.Text;
                 //Run the interpreter in a new thread and display the results as they come (using yield)
                 new Thread(() =>
                 {
                     try
                     {
-                        var output = Interpreter.Parse(text);
-                        foreach (var c in output)
-                        {
-                            Application.Current.Dispatcher.Invoke(() => txtOutput.Text += c);
-                        }
+                       Interpreter.Run(c =>
+                            Application.Current.Dispatcher.Invoke(() => txtOutput.Text += c), () => ' ');
                     }
                     catch (InvalidOperationException ex)
                     {
@@ -81,6 +78,7 @@ namespace Editor
                 Interpreter.Stopped = true;
                 btnRun.Content = "Run";
             }
+            */
         }
     }
 
@@ -106,10 +104,16 @@ namespace Editor
             set
             {
                 if (value != this.value)
+                {
                     OnPropertyChanged();
+                    // ReSharper disable once ExplicitCallerInfoArgument
+                    OnPropertyChanged("Char");
+                }
                 this.value = value;
             }
         }
+
+        public char Char => char.IsLetterOrDigit((char)value) ? (char)value : ' ';
 
         public event PropertyChangedEventHandler PropertyChanged;
 
